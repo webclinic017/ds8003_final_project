@@ -3,7 +3,7 @@
 import paramiko
 
 
-def load_staging_to_hive(file_name, trading_date, staging_folder='yahoo_chart_staging'):
+def load_staging_to_hive(file_name, table_name, part_col_name, part_col_val, staging_folder='yahoo_chart_staging'):
     # Let's just ssh into the sandbox to execute hive commands. For a prod setup we'd probably need something more robust,
     #  but for a demo this works just fine
     ssh = paramiko.SSHClient()
@@ -13,7 +13,7 @@ def load_staging_to_hive(file_name, trading_date, staging_folder='yahoo_chart_st
 
     ssh.connect('sandbox-hdp.hortonworks.com', username='root', password='hdpsandbox', port=2222)
 
-    hive_load = f"""hive -e "LOAD DATA INPATH '/tmp/{staging_folder}/{file_name}' OVERWRITE INTO TABLE yahoo_finance.chart partition (trading_date='{trading_date}')" """
+    hive_load = f"""hive -e "LOAD DATA INPATH '/tmp/{staging_folder}/{file_name}' OVERWRITE INTO TABLE {table_name} partition ({part_col_name}='{part_col_val}')" """
     _, ssh_stdout, ssh_stderr = ssh.exec_command(hive_load)
     # print(f"Running hive load: {hive_load}")
     print(ssh_stdout.readlines())

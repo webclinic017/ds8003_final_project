@@ -17,5 +17,28 @@ create table if not exists yahoo_finance.chart
    FIELDS TERMINATED BY ','
    STORED AS TEXTFILE;
 
+create table if not exists yahoo_finance.options
+   (ticker STRING,
+    option_type STRING,
+    contract_symbol STRING,
+    last_trade_date TIMESTAMP,
+    strike FLOAT,
+    lastPrice FLOAT,
+    bid FLOAT,
+    ask FLOAT,
+    change FLOAT,
+    percent_change FLOAT,
+    volume FLOAT,
+    open_interest BIGINT,
+    implied_volatility FLOAT,
+    in_the_money BOOLEAN,
+    contract_size STRING,
+    currency STRING)
+   partitioned by(expiration_date STRING)
+   ROW FORMAT DELIMITED
+   FIELDS TERMINATED BY ','
+   STORED AS TEXTFILE;
+
 DESCRIBE FORMATTED yahoo_finance.chart;
+DESCRIBE FORMATTED yahoo_finance.options;
 
