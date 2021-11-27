@@ -3,11 +3,52 @@
 import datetime
 from io import BytesIO
 
+import paramiko
+import pandas as pd
 import numpy as np
 import yfinance as yf
 from hdfs import InsecureClient
 
 from hive_load import load_staging_to_hive
+
+
+# Examples:
+# Top 3 healthcare tickers by market cap:
+#   get_ticker_data(sector="Health Care", limit=3, order="ticker_data.market_cap", order_ascending=False)
+#
+# Top 5 Finance tickers by volume:
+#   get_ticker_data(sector="Finance", limit=5, order="ticker_data.volume", order_ascending=False)
+def get_ticker_data(sector=None, limit=None, order=None, order_ascending=False):
+    ssh = paramiko.SSHClient()
+
+    # This is super not cool, but again, dev env so we'd do it properly in prod
+    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+
+    ssh.connect('sandbox-hdp.hortonworks.com', username='root', password='hdpsandbox', port=2222)
+
+    hive_load = f"""hive -e "SET hive.cli.print.header=true; select * from yahoo_finance.ticker_data;" """
+    _, ssh_stdout, ssh_stderr = ssh.exec_command(hive_load)
+
+    # This is sooooo hacky but windows is a pain to develop on and I'm not doing this in the sandbox
+    df = pd.read_csv(ssh_stdout, sep='\t')
+
+    if len(df) == 0:
+        print("No ticker data found! Have you set up a ticker_data table?")
+        raise
+
+    # Now just slice as required and return a list of tickers
+    if sector:
+        df = df[df['ticker_data.sector'] == sector]
+
+    if order:
+        df = df.sort_values(order, ascending=order_ascending)
+
+    if limit:
+        df = df.iloc[:limit]
+
+    tickers = df['ticker_data.ticker'].values.tolist()
+
+    return tickers
 
 
 def update_hadoop_yahoo_chart_data(ticker_list=('MSFT', 'GOOG'),
@@ -34,9 +75,9 @@ def update_hadoop_yahoo_chart_data(ticker_list=('MSFT', 'GOOG'),
         for ticker in ticker_list:
             print(f"\tticker={ticker}")
             cur_ticker = yf.Ticker(ticker)
-            hist = cur_ticker.history(period="max", interval="1h", start=cur_start, end=cur_end)
+            hist = cur_ticker.history(period="max", interval="1m", start=cur_start, end=cur_end)
 
-            if len(hist):
+            if len(hist) == 0:
                 print(f"No data found for date range: {cur_start} -> {cur_end}")
                 continue
 
@@ -50,7 +91,7 @@ def update_hadoop_yahoo_chart_data(ticker_list=('MSFT', 'GOOG'),
             hist.to_csv(buffer, header=False, mode='a')
 
         print("\tWriting to hdfs ...")
-        client = InsecureClient('http://localhost:50070')
+        client = InsecureClient('http://sandbox-hdp.hortonworks.com:50070')
         with client.write(f'/tmp/yahoo_chart_staging/trading_day={cur_start}.csv', overwrite=True) as writer:
             writer.write(buffer.getvalue())
 
@@ -109,7 +150,7 @@ def update_hadoop_yahoo_options_data(ticker_list=('MSFT', 'GOOG')):
             puts.to_csv(buffer, header=False, mode='a')
 
         print("\tWriting to hdfs ...")
-        client = InsecureClient('http://localhost:50070')
+        client = InsecureClient('http://sandbox-hdp.hortonworks.com:50070')
         with client.write(f'/tmp/yahoo_options_staging/expiration_date={date}.csv', overwrite=True) as writer:
             writer.write(buffer.getvalue())
 

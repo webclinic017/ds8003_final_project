@@ -6,64 +6,20 @@ from airflow.operators.python import PythonOperator, PythonVirtualenvOperator
 from airflow.sensors.weekday import DayOfWeekSensor
 
 
-def pull_data_and_write_to_hive():
-    import datetime
-    from io import BytesIO
+def pull_top_5_finance_data_yesterday_and_write_to_hive():
+    import yahoo_to_hadoop as y2h
 
-    import numpy as np
-    import yfinance as yf
-    from hdfs import InsecureClient
+    # Grab some tickers of interest
+    top_5_finance_by_market_cap = y2h.get_ticker_data(sector="Finance",
+                                                      limit=5,
+                                                      order="ticker_data.market_cap",
+                                                      order_ascending=False)
 
-    from hive_load import load_staging_to_hive
+    # Now pull down the chart and options data
+    y2h.update_hadoop_yahoo_chart_data(ticker_list=top_5_finance_by_market_cap)
+    y2h.update_hadoop_yahoo_options_data(ticker_list=top_5_finance_by_market_cap)
 
-    # Default to end today, start yesterday
-    DAYS_AGO_END = 0
-    DAYS_AGO_START = DAYS_AGO_END + 1
-
-    # First let's pull down some data from yahoo, store it in memory, and then write it to a staging area in hdfs
-    ticker_list = ['MSFT']  # , 'GOOG', 'AAPL', 'AMZN', 'TSLA', 'NFLX', 'GME', 'AMC']
-
-    # The yfinance package has some convenience functions for this to download multiple tickers
-    #  and group them, but this way we replicate what it would look like to actually
-    #  hit the endpoint ourselves so it's easier if we want to change to that in the future
-    buffer = BytesIO()
-
-    # If we want to do a historical pull for the tickers, we can set this to 365d or however long we want
-    today_dt = datetime.datetime.today()
-    start_dt = today_dt - datetime.timedelta(days=DAYS_AGO_START)
-    end_dt = today_dt - datetime.timedelta(days=DAYS_AGO_END)
-
-    for days_after_start in range(DAYS_AGO_START - DAYS_AGO_END):
-
-        cur_start = (start_dt + datetime.timedelta(days=days_after_start)).strftime("%Y-%m-%d")
-        cur_end = (start_dt + datetime.timedelta(days=days_after_start) + datetime.timedelta(days=1)).strftime(
-            "%Y-%m-%d")
-        print(f"Processing data for trading_date={cur_start}")
-
-        for ticker in ticker_list:
-            print(f"\tticker={ticker}")
-            cur_ticker = yf.Ticker(ticker)
-            hist = cur_ticker.history(period="max", interval="1h", start=cur_start, end=cur_end)
-
-            # Add the ticker column into the data
-            hist.insert(0, 'Symbol', ticker)
-
-            # Convert timestamps to unix ts
-            hist.index = hist.index.view(np.int64)
-
-            # Make sure to append here!
-            hist.to_csv(buffer, header=False, mode='a')
-
-        print("\tWriting to hdfs ...")
-        client = InsecureClient('http://localhost:50070')
-        with client.write(f'/tmp/yahoo_chart_staging/trading_day={cur_start}.csv', overwrite=True) as writer:
-            writer.write(buffer.getvalue())
-
-        # Load the data to hive
-        print("\tLoading into Hive ...")
-        load_staging_to_hive(file_name=f'trading_day={cur_start}.csv',
-                             trading_date=cur_start,
-                             staging_folder='yahoo_chart_staging')
+    return "Done!"
 
 
 default_args = {
@@ -75,15 +31,15 @@ with DAG(
         'yahoo_finance_refresh',
         default_args=default_args,
         description='Refresh the Yahoo finance API data',
-        schedule_interval='0 23 * * 1-5',  # Every weekday at 11pm
+        schedule_interval='0 3 * * 2-6',  # Mon -> Sat at 3am
         start_date=datetime(2021, 1, 1),
         catchup=False,
 ) as dag:
     # Let's pull the data and write it to HDFS
     t1 = PythonVirtualenvOperator(
         task_id='pull_finance_data_from_yahoo',
-        python_callable=pull_data_and_write_to_hive,
-        requirements=['yfinance==0.1.66', 'hdfs==2.6.0', 'paramiko==2.8.0'],
+        python_callable=pull_top_5_finance_data_yesterday_and_write_to_hive,
+        requirements=['yfinance==0.1.66', 'hdfs==2.6.0', 'paramiko==2.8.0', 'numpy==1.21.4', 'pandas==1.3.4'],
     )
 
     # We can add notification task here?
