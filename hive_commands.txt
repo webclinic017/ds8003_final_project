@@ -2,6 +2,23 @@ create database if not exists yahoo_finance;
 
 SHOW DATABASES;
 
+create table if not exists yahoo_finance.ticker_data
+   (ticker STRING,
+    name STRING,
+    last_sale STRING,
+    net_change FLOAT,
+    percent_change STRING,
+    market_cap FLOAT,
+    country STRING,
+    ipo_year FLOAT,
+    volume BIGINT,
+    sector STRING,
+    industry STRING)
+   ROW FORMAT DELIMITED
+   FIELDS TERMINATED BY ','
+   STORED AS TEXTFILE;
+LOAD DATA INPATH '/tmp/ticker_data/nasdaq_screener.csv' OVERWRITE INTO TABLE yahoo_finance.ticker_data;
+
 create table if not exists yahoo_finance.chart
    (trading_unix_timestamp BIGINT,
     ticker STRING,
@@ -42,3 +59,8 @@ create table if not exists yahoo_finance.options
 DESCRIBE FORMATTED yahoo_finance.chart;
 DESCRIBE FORMATTED yahoo_finance.options;
 
+# Sample queries
+select * from yahoo_finance.chart t1
+left join yahoo_finance.ticker_data t2
+	on t1.ticker = t2.ticker
+limit 10;

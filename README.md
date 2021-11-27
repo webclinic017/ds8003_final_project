@@ -31,5 +31,7 @@
 4. Now that we have a dag refreshing data in a tmp directory, we can set up a table in hive to read in the data, see
    hive_commands.txt for details.
 
-5. Here, we need to figure out what we are using to run analysis and visualize. Maybe kibana, could use tableau,
+5. Lastly we need to load the ticker data into hive. We can manually copy the csv (some issues with the size and the hdfs lib) and then load into hive.
+
+6. Here, we need to figure out what we are using to run analysis and visualize. Maybe kibana, could use tableau,
    anything.

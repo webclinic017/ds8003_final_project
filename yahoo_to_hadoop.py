@@ -63,12 +63,7 @@ def update_hadoop_yahoo_chart_data(ticker_list=('MSFT', 'GOOG'),
                              staging_folder='yahoo_chart_staging')
 
 
-def update_hadoop_yahoo_options_data(ticker_list=('MSFT', 'GOOG'),
-                                     # Default to end today, start yesterday
-                                     days_ago_start=1,
-                                     days_ago_end=0):
-    # First let's pull down some data from yahoo, store it in memory, and then write it to a staging area in hdfs
-
+def update_hadoop_yahoo_options_data(ticker_list=('MSFT', 'GOOG')):
     # The yfinance package has some convenience functions for this to download multiple tickers
     #  and group them, but this way we replicate what it would look like to actually
     #  hit the endpoint ourselves so it's easier if we want to change to that in the future
