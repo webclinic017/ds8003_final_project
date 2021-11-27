@@ -38,6 +38,7 @@ create table if not exists yahoo_finance.options
    (ticker STRING,
     contract_symbol STRING,
     option_type STRING,
+    option_id STRING,
     last_trade_date TIMESTAMP,
     strike FLOAT,
     lastPrice FLOAT,
