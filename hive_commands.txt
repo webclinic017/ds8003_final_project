@@ -57,6 +57,52 @@ create table if not exists yahoo_finance.options
    FIELDS TERMINATED BY ','
    STORED AS TEXTFILE;
 
+create table if not exists yahoo_finance.sustainability
+   (ticker STRING,
+    palm_oil BOOLEAN,
+    controversial_weapons BOOLEAN,
+    gambling BOOLEAN,
+    social_score FLOAT,
+    nuclear BOOLEAN,
+    fur_leather BOOLEAN,
+    alcoholic BOOLEAN,
+    gmo BOOLEAN,
+    catholic BOOLEAN,
+    social_percentile FLOAT,
+    peer_count INT,
+    governance_score FLOAT,
+    environment_percentile FLOAT,
+    animal_testing BOOLEAN,
+    tobacco BOOLEAN,
+    total_esg FLOAT,
+    highest_controversy INT,
+    esg_performance STRING,
+    coal BOOLEAN,
+    pesticides BOOLEAN,
+    adult BOOLEAN,
+    percentile FLOAT,
+    peer_group STRING,
+    small_arms BOOLEAN,
+    environment_score FLOAT,
+    governance_percentile FLOAT,
+    military_contract BOOLEAN)
+   partitioned by(ticker_report_date STRING)
+   ROW FORMAT DELIMITED
+   FIELDS TERMINATED BY ','
+   STORED AS TEXTFILE;
+
+create table if not exists yahoo_finance.news
+   (ticker STRING,
+    uuid STRING,
+    title STRING,
+    publisher STRING,
+    link STRING,
+    provider_publish_timestamp BIGINT,
+    type STRING)
+   ROW FORMAT DELIMITED
+   FIELDS TERMINATED BY ','
+   STORED AS TEXTFILE;
+
 DESCRIBE FORMATTED yahoo_finance.chart;
 DESCRIBE FORMATTED yahoo_finance.options;
 

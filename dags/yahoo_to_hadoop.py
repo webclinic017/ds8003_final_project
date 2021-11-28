@@ -104,6 +104,92 @@ def update_hadoop_yahoo_chart_data(ticker_list=('MSFT', 'GOOG'),
                              staging_folder='yahoo_chart_staging')
 
 
+def update_hadoop_yahoo_news(ticker_list=('MSFT', 'GOOG')):
+    buffer = BytesIO()
+
+    extract_date = datetime.datetime.today().strftime("%Y-%m-%d")
+
+    for ticker in ticker_list:
+        print(f"\tticker={ticker}")
+        cur_ticker = yf.Ticker(ticker)
+        news = cur_ticker.news
+
+        if len(news) == 0:
+            print(f"No data found for ticker: {ticker}")
+            continue
+
+        news_df = pd.DataFrame.from_dict(news, orient='columns')
+
+        # Add the ticker column into the data
+        news_df.insert(0, 'Symbol', ticker)
+
+        # Make sure to append here!
+        news_df.to_csv(buffer, header=False, index=False, mode='a')
+
+    print("\tWriting to hdfs ...")
+    client = InsecureClient('http://sandbox-hdp.hortonworks.com:50070')
+    with client.write(f'/tmp/yahoo_news_staging/extract_date={extract_date}.csv', overwrite=True) as writer:
+        writer.write(buffer.getvalue())
+
+    # Load the data to hive
+    # NOTE: We don't partiton this, meaning we can get dupes. Easy to dedupe since we have uuids
+    print("\tLoading into Hive ...")
+    load_staging_to_hive(file_name=f'extract_date={extract_date}.csv',
+                         table_name='yahoo_finance.news',
+                         staging_folder='yahoo_news_staging')
+
+
+def update_hadoop_sustainability(ticker_list=('MSFT', 'GOOG')):
+    # NOTE: We could group these by date like we did with the options chains, but that's for future work
+    buffer = BytesIO()
+
+    # These are the current columns in the sustainability report. If more get added we will need to alter the
+    #  hive table to support them, so we need to manually maintain this for now
+    columns = ['palmOil', 'controversialWeapons', 'gambling', 'socialScore', 'nuclear', 'furLeather', 'alcoholic',
+               'gmo', 'catholic', 'socialPercentile', 'peerCount', 'governanceScore', 'environmentPercentile',
+               'animalTesting', 'tobacco', 'totalEsg', 'highestControversy', 'esgPerformance', 'coal', 'pesticides',
+               'adult', 'percentile', 'peerGroup', 'smallArms', 'environmentScore', 'governancePercentile',
+               'militaryContract']
+
+    for ticker in ticker_list:
+        print(f"\tticker={ticker}")
+        cur_ticker = yf.Ticker(ticker)
+        sustainability = cur_ticker.sustainability
+
+        if type(sustainability) != pd.core.frame.DataFrame:
+            print(f"No data found for ticker: {ticker}")
+            continue
+
+        # Keep only known cols
+        sustainability = sustainability.loc[columns, :]
+
+        # Grab the report date
+        report_date = sustainability.index.name
+
+        sustainability = sustainability.transpose()
+
+        # Add the ticker column into the data
+        sustainability.insert(0, 'Symbol', ticker)
+
+        # Make sure to append here!
+        sustainability.to_csv(buffer, header=False, index=False, mode='a')
+
+        print("\tWriting to hdfs ...")
+        client = InsecureClient('http://sandbox-hdp.hortonworks.com:50070')
+        with client.write(f'/tmp/yahoo_sustainability_staging/ticker_report_date={ticker}_{report_date}.csv',
+                          overwrite=True) as writer:
+            writer.write(buffer.getvalue())
+
+        # Load the data to hive
+        # NOTE: We don't partiton this, meaning we can get dupes. Easy to dedupe since we have uuids
+        print("\tLoading into Hive ...")
+        load_staging_to_hive(file_name=f'ticker_report_date={ticker}_{report_date}.csv',
+                             table_name='yahoo_finance.sustainability',
+                             part_col_name='ticker_report_date',
+                             part_col_val=f"{ticker}_{report_date}",
+                             staging_folder='yahoo_sustainability_staging')
+
+
 def update_hadoop_yahoo_options_data(ticker_list=('MSFT', 'GOOG')):
     # The yfinance package has some convenience functions for this to download multiple tickers
     #  and group them, but this way we replicate what it would look like to actually
@@ -165,4 +251,6 @@ def update_hadoop_yahoo_options_data(ticker_list=('MSFT', 'GOOG')):
 
 if __name__ == '__main__':
     # Test options load
-    update_hadoop_yahoo_options_data()
+    # update_hadoop_yahoo_options_data()
+
+    update_hadoop_yahoo_news()
