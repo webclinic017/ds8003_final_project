@@ -75,7 +75,7 @@ def update_hadoop_yahoo_chart_data(ticker_list=('MSFT', 'GOOG'),
         for ticker in ticker_list:
             print(f"\tticker={ticker}")
             cur_ticker = yf.Ticker(ticker)
-            hist = cur_ticker.history(period="max", interval="1m", start=cur_start, end=cur_end)
+            hist = cur_ticker.history(period="max", interval="1h", start=cur_start, end=cur_end)
 
             if len(hist) == 0:
                 print(f"No data found for date range: {cur_start} -> {cur_end}")
@@ -253,4 +253,11 @@ if __name__ == '__main__':
     # Test options load
     # update_hadoop_yahoo_options_data()
 
-    update_hadoop_yahoo_news()
+    tickers = top_5_tech_by_market_cap = get_ticker_data(sector="Technology",
+                                                         limit=5,
+                                                         order="ticker_data.market_cap",
+                                                         order_ascending=False)
+
+    update_hadoop_yahoo_news(tickers)
+    update_hadoop_yahoo_chart_data(tickers, days_ago_start=14)
+    update_hadoop_sustainability(tickers)
