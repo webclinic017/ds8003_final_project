@@ -1,0 +1,90 @@
+--note: on restarting hive, you need to load the .jar file back in -> prob have to modify the hive xml file to make this permanent
+--1.  Download ES-Hadoop.zip from https://www.elastic.co/downloads/hadoop
+--2. Extract the .zip file downloaded, open Filezilla, go into the extracted folder, and grab "elasticsearch-hadoop-7.15.2.jar" and transfer to
+--   the sandbox environment - I stored this in /root/
+--3. According to https://www.elastic.co/guide/en/elasticsearch/hadoop/current/hive.html, take the "elasticsearch-hadoop-7.15.2.jar" and
+--   make the jar available to the hive classpath
+--   - I did this by opening sandbox terminal, and transferring "elasticsearch-hadoop-7.15.2.jar" to hdfs.
+--		- Using the following command: hadoop fs -put /root/elasticsearch-hadoop-7.1 which moves it to the HDFS /tmp/ directory
+--   - Open up hive, input the following: "ADD JAR elasticsearch-hadoop-7.15.2.jar;" which outputs 2 successful added lines
+-- 3b. I get a Connection errror with ES-Hadoop which defaults to port 9200. On the sandbox terminal open up port 9200 by:
+-- iptables -A INPUT -p tcp --dport 9200 -j ACCEPT
+elasticsearch-hadoop-hive-7.15.2.jar
+--4. Now we need to define the hive table over Elasticsearch
+
+SHOW DATABASES;
+USE yahoo_finance;
+set hive.execution.engine=MR; 
+ADD JAR elasticsearch-hadoop-7.15.2.jar;
+
+CREATE EXTERNAL TABLE yahoo_finance.ticker_data_es (
+ticker string,
+name string,
+last_sale string,
+net_change float,
+percent_change string,
+market_cap float,
+country string,
+ipo_year float,
+volume bigint,
+sector string,
+industry string
+)
+ROW FORMAT SERDE 'org.elasticsearch.hadoop.hive.EsSerDe'
+STORED BY 'org.elasticsearch.hadoop.hive.EsStorageHandler'
+TBLPROPERTIES(
+'es.resource' = 'final/ticker_data'
+);
+CREATE EXTERNAL TABLE yahoo_finance.chart_es (
+trading_date date,
+ticker string,
+open float,
+high float,
+low float,
+close float,
+volume bigint,
+dividends float,
+stock_splits int
+)
+ROW FORMAT SERDE 'org.elasticsearch.hadoop.hive.EsSerDe'
+STORED BY 'org.elasticsearch.hadoop.hive.EsStorageHandler'
+TBLPROPERTIES(
+'es.resource' = 'final/chart'
+);
+
+CREATE EXTERNAL TABLE yahoo_finance.options_es (
+ticker string,
+contract_symbol string,
+option_type string,
+last_trade_date timestamp,
+strike float,
+lastprice float,
+bid float,
+ask float,
+change float,
+percent_change float,
+volume float,
+open_interest bigint,
+implied_volatility float,
+in_the_money boolean,
+contract_size string,
+currency string,
+expiration_date string
+)
+ROW FORMAT SERDE 'org.elasticsearch.hadoop.hive.EsSerDe'
+STORED BY 'org.elasticsearch.hadoop.hive.EsStorageHandler'
+TBLPROPERTIES(
+'es.resource' = 'final/options'
+);
+
+INSERT INTO TABLE yahoo_finance.ticker_data_es 
+SELECT * 
+FROM yahoo_finance.ticker_data;
+
+INSERT INTO TABLE yahoo_finance.options_es 
+SELECT * 
+FROM yahoo_finance.ticker_data;
+
+INSERT INTO TABLE yahoo_finance.chart_es 
+SELECT * 
+FROM yahoo_finance.ticker_data;
